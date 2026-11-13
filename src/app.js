@@ -18,6 +18,6 @@ class Application {
   }
 
   async close() {
-    await this.server.close();
+    await this.server.stop();
   }
 }

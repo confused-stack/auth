@@ -65,7 +65,8 @@ class Server {
         console.error(`Unrecognized email object retreived from Google.`);
         return cb("Unrecognized email object retreived from Google.");
       }
-
+      console.log("DEBUG: profile:");
+      console.log(profile);
       const usrObj = {
         issuer: issuer,
         id: profile.id,
@@ -83,15 +84,69 @@ class Server {
 
     // === HAProxy Login Check
     this.app.head("/check", (req, res) => {
+      if (req.isAuthenticated()) {
+        return res.sendStatus(200); // TODO testing needed
+      } else {
+        const host = req.get("X-Original-Host");
+        const uri = req.get("X-Original-URI");
 
+        // TODO here would be a good place to validate allowed services
+        const returnTo = new URL(uri, `http://${host}`);
+
+        if (returnTo.origin !== `http://${host}`) {
+          return res.sendStatus(400);
+        }
+
+        const login = new URL("https://auth.example.com/login");
+        login.searchParams.set("returnTo", returnTo.href);
+
+        res.redirect(302, login.href);
+      }
     });
 
     // === Initiate Login Procedure
-    this.app.get("/login", this.passport.authenticate("google"));
+    this.app.get("/login", (req, res, next) => {
+      const returnTo = req.query.returnTo;
+
+      if (typeof returnTo === "string") {
+        // ^^ TODO Do we validate where we return to? Otherwise we get an OpenRedirect Vuln
+        req.session.returnTo = returnTo;
+      } else {
+        // TODO default returnTo?
+      }
+
+      // Persist 'returnTo' before redirect
+      req.session.save((err) => {
+        if (err) return next(err);
+        passport.authenticate("google")(req, res, next);
+      });
+    });
 
     // === Handle login procedure response
-    this.app.get("/callback", (req, res) => {
+    this.app.get(
+      "/callback",
+      this.passport.authenticate("google", { failureRedirect: "/login" }),
+      (req, res, next) => {
+      if (req.isAuthenticated()) {
+        const user = req.session.passport.user; // TODO do we maintain service access?
+        const returnTo = req.session.returnTo;
 
+        delete req.session.returnTo;
+
+        req.session.save((err) => {
+          if (err) return next(err);
+
+          if (returnTo) {
+            // ^^ TODO Do we validate where we return to? Otherwise we get an OpenRedirect Vuln
+            res.redirect(returnTo);
+          } else {
+            // They have no 'returnTo' address, should we configure a default location?
+          }
+        });
+      } else {
+        // Why didn't the failure redirect capture this? Manually redirect
+        res.redirect("/login");
+      }
     });
   }
 
