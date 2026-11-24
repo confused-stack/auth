@@ -10,6 +10,7 @@ class Application {
   }
 
   async init() {
+    this.config.init();
     await this.server.init();
   }
 

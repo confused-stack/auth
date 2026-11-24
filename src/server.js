@@ -97,7 +97,7 @@ class Server {
           return res.sendStatus(400);
         }
 
-        const login = new URL("https://auth.example.com/login");
+        const login = new URL(`${this.config.get("AUTH_SERVICE_URL")}/login`);
         login.searchParams.set("returnTo", returnTo.href);
 
         res.redirect(302, login.href);
@@ -111,8 +111,7 @@ class Server {
       if (typeof returnTo === "string") {
         // ^^ TODO Do we validate where we return to? Otherwise we get an OpenRedirect Vuln
         req.session.returnTo = returnTo;
-      } else {
-        // TODO default returnTo?
+        // If there's no `returnTo` available we handle that after authentication
       }
 
       // Persist 'returnTo' before redirect
@@ -140,7 +139,7 @@ class Server {
             // ^^ TODO Do we validate where we return to? Otherwise we get an OpenRedirect Vuln
             res.redirect(returnTo);
           } else {
-            // They have no 'returnTo' address, should we configure a default location?
+            res.redirect(this.config.get("DEFAULT_REDIRECT_URL"));
           }
         });
       } else {
