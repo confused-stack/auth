@@ -5,6 +5,7 @@ const passport = require("passport");
 const session = require("express-session");
 const SessionFileStore = require("session-file-store")(session);
 const GoogleStrategy = require("passport-google-oidc");
+const userInfo = require("./user_info.js");
 
 module.exports =
 class Server {
@@ -69,26 +70,7 @@ class Server {
         scope: ["profile", "email", "openid"]
       },
     (issuer, profile, cb) => {
-      // TODO: This section is taken from confused-Techie/spt2
-      // Additional research should be done to clarify it and confirm more widespread usage
-      if (
-        !Array.isArray(profile.emails) ||
-        typeof profile.emails[0]?.value !== "string"
-      ) {
-        console.error(`Unrecognized email object retreived from Google.`);
-        return cb("Unrecognized email object retreived from Google.");
-      }
-      console.log("DEBUG: profile:");
-      console.log(profile);
-      const usrObj = {
-        issuer: issuer,
-        id: profile.id,
-        display_name: profile.displayName,
-        given_name: profile.name.givenName,
-        family_name: profile.name.familyName,
-        email: profile.emails[0].value
-      };
-
+      const usrObj = userInfo(profile, issuer);
       return cb(null, usrObj);
     })
     );
